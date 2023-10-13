@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>郑州大学北核空教室查询</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="显示北核的空教室，数据每天早上6点更新一次。">
+    <link rel="stylesheet" href="./css/style.css">
+    <script src="./scripts/moment.js"></script>
+    <script>
+        function processAndDisplayData(data, selectedBuilding, selectedTimeSplit) {
+            const resultDiv = document.getElementById("result");
+            const buildingData = data[`building_${selectedBuilding}`];
+            if (buildingData && buildingData[selectedTimeSplit]) {
+                const emptyRoomsData = buildingData[selectedTimeSplit];
+                if (emptyRoomsData.length === 0) resultDiv.textContent = "该时间段没有可用教室。";
+                else {
+                    const resultList = document.createElement("ul");
+                    emptyRoomsData.forEach(item => {
+                        const floor = item.floor;
+                        const emptyRooms = item.EmptyRooms;
+                        const building = selectedBuilding;
+                        if (selectedBuilding === building) {
+                            const listItem = document.createElement("li");
+                            listItem.innerHTML = `<strong>${floor} 楼：</strong><span>${emptyRooms.join(", ")}</span>`;
+                            listItem.classList.add(`building_${building}`);
+                            resultList.appendChild(listItem);
+                        }
+                    });
+                    resultDiv.innerHTML = "";
+                    resultDiv.appendChild(resultList);
+                }
+            } else resultDiv.textContent = "No Available Data.";
+        }
+        function utcPlus8() { return moment(moment.utc()).utcOffset(8); }
+        function handleDatetime(inputDate) {
+            const utcPlus8Time = utcPlus8();
+            const givenDate = moment.utc(inputDate, "YYYY-MM-DD HH:mm:ss Z").utcOffset(8);
+            const today = utcPlus8Time.startOf('day');
+            const yesterday = today.clone().subtract(1, 'day');
+            const daysDifference = utcPlus8Time.diff(givenDate, 'days');
+
+            if (givenDate.isSameOrAfter(today)) {
+                return "今天";
+            } else {
+                if (givenDate.isSameOrAfter(yesterday)) {
+                    return "昨天";
+                } else if (daysDifference < 7) {
+                    return `${daysDifference}天前`;
+                } else if (daysDifference < 31) {
+                    return `${Math.floor(daysDifference / 7)}周前`;
+                } else if (daysDifference <= 365) {
+                    return `${Math.floor(daysDifference / 30)}个月前`;
+                } else {
+                    return `${Math.floor(daysDifference / 365)}年前`;
+                }
+            }
+        }
+        function selectTimeOption() {
+            const currentTime = moment(); // 获取当前时间
+            const timeOptions = [{ "start_time": "08:00", "end_time": "09:40", "option": "1" }, { "start_time": "10:10", "end_time": "11:50", "option": "2" }, { "start_time": "14:00", "end_time": "15:40", "option": "3" }, { "start_time": "16:00", "end_time": "17:40", "option": "4" }, { "start_time": "17:00", "end_time": "20:40", "option": "7" }];
+            for (let i = 0; i < timeOptions.length; i++) {
+                const startTime = moment(timeOptions[i].start_time, "HH:mm");
+                const endTime = moment(timeOptions[i].end_time, "HH:mm");
+                if (startTime.isSameOrAfter(currentTime)) {
+                    console.log(startTime, i)
+                    const selectElement = document.getElementById("timeSplit");
+                    selectElement.value = "time_split_" + timeOptions[i].option;
+                    break;
+                }
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <h1>郑州大学北核空教室查询</h1>
+    <div class="display"><label>最后更新于：<label id="last_update"></label></label><br></div>
+    <div id="interface" class="display">
+        <label for="buildingSelect">选择教学楼：</label>
+        <select id="buildingSelect" onchange="showEmptyRooms()">
+            <option value="5">北1</option>
+            <option value="6">北2</option>
+            <option value="7">北3</option>
+            <option value="8">北4</option>
+            <option value="9">北5</option>
+        </select><br>
+        <label for="timeSplit">选择时间段：</label>
+        <select id="timeSplit" onchange="showEmptyRooms()">
+            <option value="time_split_1">上午1、2节</option>
+            <option value="time_split_2">上午3、4节</option>
+            <option value="time_split_3">下午5、6节</option>
+            <option value="time_split_4">下午7、8节</option>
+            <option value="time_split_6">上午</option>
+            <option value="time_split_7">下午</option>
+            <option value="time_split_5">晚上</option>
+        </select>
+    </div>
+
+    <div id="result"><!-- 结果将在此处显示 --></div>
+
+    <script>
+
+        let roomData = null;
+
+        function showEmptyRooms() {
+            const selectedTimeSplit = document.getElementById("timeSplit").value;
+            const selectedBuilding = document.getElementById("buildingSelect").value;
+            const resultDiv = document.getElementById("result");
+            resultDiv.innerHTML = "Loading ...";
+
+            // 如果全局变量已有数据，则直接使用
+            if (roomData) processAndDisplayData(roomData, selectedBuilding, selectedTimeSplit);
+            else {
+                fetch("./data.json")
+                    .then(response => response.json())
+                    .then(data => {
+                        roomData = data.data;
+                        const last_update_label = document.getElementById("last_update");
+                        last_update_label.innerText = handleDatetime(data.last_update_time)
+                        // 处理数据并显示
+                        processAndDisplayData(roomData, selectedBuilding, selectedTimeSplit);
+                    })
+                    .catch(error => {
+                        console.error("发生错误：", error);
+                        resultDiv.textContent = "无法获取数据。";
+                    });
+            }
+        }
+        window.addEventListener('load', showEmptyRooms); // 页面加载后自动调用 showEmptyRooms
+        selectTimeOption();
+    </script>
+</body>
+
+</html>
