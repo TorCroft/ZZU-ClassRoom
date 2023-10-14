@@ -12,7 +12,7 @@ CONFIG_TEMPLATE = {
     "ECardAccessToken": "",
 }
 
-
+# fmt: off
 class Config:
     def __init__(self) -> None:
         if "ZZU_CONFIG" in os.environ:
@@ -38,10 +38,10 @@ class Config:
             data[key] = self.__dict__[key]
         data.update(**kwargs)
         if "ZZU_CONFIG" in os.environ:
-            update_secret(name="ZZU_CONFIG", value=data, repo="ZZU-ClassRoom", token=os.environ["GH_ACCESS_TOKEN"])
+            update_secret(secret_name="ZZU_CONFIG", value=json.dumps(data), owner=os.environ["GH_USERNAME"], repo="ZZU-ClassRoom", token=os.environ["GH_ACCESS_TOKEN"])
         else:
             with open(self.path, "w", encoding="utf-8") as f:
                 json.dump(data, f)
-
+# fmt: on
 
 config = Config()

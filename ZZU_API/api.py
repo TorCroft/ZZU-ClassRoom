@@ -21,7 +21,7 @@ class ZZU_API:
         self.host = "https://token.s.zzu.edu.cn"
         self.ecard_host = "https://ecard.v.zzu.edu.cn"
 
-    def login(self):
+    def login(self, config_save = True):
         path = "/password/passwordLogin"
         header = {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -45,7 +45,8 @@ class ZZU_API:
         if int(response.get("code")) != 0:
             raise ZZU_Login_Error(response.get("message"))
         config.UserToken = response["data"]["idToken"]
-        config.save_config()
+        if config_save:
+            config.save_config()
 
     def get_jid_and_tid(self):
         path = "/server/auth/host/open"

@@ -12,6 +12,8 @@ class ZZU_TokenError(Exception):
 class ZZU_Class_Room(ZZU_API):
     def __init__(self) -> None:
         super(ZZU_Class_Room, self).__init__()
+        if not config.UserToken:
+            self.login(config_save=False)
 
         self.jw_host = "https://jw.v.zzu.edu.cn"
 
@@ -71,8 +73,8 @@ class ZZU_Class_Room(ZZU_API):
                 raise ZZU_TokenError(response.get("err_msg"))
         except ZZU_TokenError:
             if retry:
+                self.get_jw_token()
                 return self.get_room_data_by_building_id(building_id, date_str, retry=False)
-            self.get_jw_token()
 
         return decode_to_json(response["business_data"])
 

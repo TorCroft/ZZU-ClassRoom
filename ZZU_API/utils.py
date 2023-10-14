@@ -5,10 +5,9 @@ from .logger import logger
 import requests
 import json
 
-# fmt: off
+
 def utc_plus_8() -> datetime:
     return datetime.now(UTC).astimezone(timezone(timedelta(hours=8)))
-# fmt: on
 
 
 def timestamp_13_digit() -> int:
@@ -63,19 +62,20 @@ def encrypt(public_key, secret_value) -> str:
     return b64encode(encrypted).decode("utf-8")
 
 
-def get_pub_key(repos: str, token: str) -> tuple[str, int]:
-    url = "https://api.github.com/repos/{}/actions/secrets/public-key".format(repos)
+def get_pub_key(owner: str, repo: str, token: str) -> tuple[str, int]:
+    url = f"https://api.github.com/repos/{owner}/{repo}/actions/secrets/public-key"
     headers = {
         "Accept": "application/vnd.github+json",
-        "Authorization": "Bearer {}".format(token),
+        "Authorization": f"Bearer {token}",
         "X-GitHub-Api-Version": "2022-11-28",
     }
+    r = requests.get(url, headers=headers).json()
+    if "key" not in r:
+        logger.debug(r)
+    return r["key"], r["key_id"]
 
-    r = requests.get(url, headers=headers)
-    return r.json()["key"], r.json()["key_id"]
 
-
-def update_secret(name: str, value: str, repo: str, token: str):
+def update_secret(secret_name: str, value: str, owner: str, repo: str, token: str):
     """
     更新 secret
 
@@ -87,8 +87,8 @@ def update_secret(name: str, value: str, repo: str, token: str):
     if not token:
         logger.warning("未配置 GitHub Personal Access Token, 更新 refresh_tokens 失败")
         return
-    key, key_id = get_pub_key(repo, token)
-    url = f"https://api.github.com/repos/{repo}/actions/secrets/{name}"
+    key, key_id = get_pub_key(owner, repo, token)
+    url = f"https://api.github.com/repos/{owner}/{repo}/actions/secrets/{secret_name}"
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",
@@ -97,6 +97,6 @@ def update_secret(name: str, value: str, repo: str, token: str):
     payload = {"encrypted_value": encrypt(key, value), "key_id": key_id}
     response = requests.put(url, headers=headers, json=payload)
     if response.status_code == 204:
-        logger.info(f"Secret {name} 更新成功")
+        logger.info(f"Secret {secret_name} 更新成功")
     else:
-        logger.error(f"Secret {name} 更新失败，错误信息：{response.content}")
+        logger.error(f"Secret {secret_name} 更新失败，错误信息：{response.content}")
