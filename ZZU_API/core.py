@@ -1,4 +1,5 @@
 from requests import post
+from .logger import logger
 from .utils import get_today_date_str, timestamp_13_digit, decode_to_json
 from .config import config
 from .api import ZZU_API
@@ -36,7 +37,7 @@ class ZZU_Class_Room(ZZU_API):
             "Cookie": "SVRNAME=ws1",
         }
 
-    def get_jw_token(self):
+    def get_jw_token(self, retry=True):
         '''获取教务系统的token，用于访问教务系统相关资源'''
         path = "/app-ws/ws/app-service/super/app/login-token"
         header: dict = self.base_header
@@ -46,9 +47,16 @@ class ZZU_Class_Room(ZZU_API):
             "userToken": config.UserToken,
             "timestamp": timestamp_13_digit(),
         }
-        response: dict = post(url=self.jw_host + path, headers=header, data=data).json()
-        if int(response.get("err_code")) != 0:
-            raise ZZU_TokenError(response.get("err_msg"))
+        try:
+            response: dict = post(url=self.jw_host + path, headers=header, data=data).json()
+            if int(response.get("err_code", -1)) != 0:
+                raise ZZU_TokenError(response.get("err_msg", response.get("message")))
+        except ZZU_TokenError as e:
+            logger.error(e)
+            logger.info("Retry logging in to get a new UserToken.")
+            if retry:
+                self.login(config_save=False)
+                return self.get_jw_token(retry=False)
         decoded_data = decode_to_json(response["business_data"])
         config.Token = decoded_data["token"]
         config.save_config()
@@ -71,7 +79,9 @@ class ZZU_Class_Room(ZZU_API):
             response: dict = post(url=self.jw_host + path, headers=self.base_header, data=data).json()
             if int(response.get("err_code")) != 0:
                 raise ZZU_TokenError(response.get("err_msg"))
-        except ZZU_TokenError:
+        except ZZU_TokenError as e:
+            logger.error(e)
+            logger.info("Trying to refresh Token.")
             if retry:
                 self.get_jw_token()
                 return self.get_room_data_by_building_id(building_id, date_str, retry=False)
